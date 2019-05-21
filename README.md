@@ -5,6 +5,7 @@ The aim of this project is to create an algorithm capable of segmenting a set of
 
 ![Project output] (images/project_output.png)
 
+
 Further development will be pushed to this repo in the upcoming week.
 
 # Execution
