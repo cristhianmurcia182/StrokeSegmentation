@@ -507,23 +507,3 @@ print(len(final_strokes))
 after = draw_strokes(image, final_strokes, colors)
 showImage(after)
 
-
-
-
-all_strokes, _ = generate_strokes2(s)
-before = draw_strokes(image, all_strokes, colors)
-
-showImage(before)
-
-
-
-
-
-image = cv2.imread('images/test_5.png')
-skeleton_image = getSkeleton(image)
-showImage(s, method="csv")
-all_strokes, _ = generate_strokes2(skeleton_image)
-
-pixel = find_top_left_most_pixel(skeleton_image, processing_index=0)
-len(scan_8_pixel_neighbourhood(skeleton_image, pixel))
-neighbours = scan_8_pixel_neighbourhood(skeleton_image, pixel)
