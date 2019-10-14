@@ -489,25 +489,24 @@ def generate_final_strokes(image):
 
 
 
-image = cv2.imread('images/test_5.png')
+image = cv2.imread('images/ethiopia_modified.png')
+showImage(image)
 skeleton_image = getSkeleton(image)
-showImage(skeleton_image, method="csv")
+showImage(skeleton_image)
 all_strokes, _ = generate_strokes2(skeleton_image)
 print(len(all_strokes))
 before = draw_strokes(image, all_strokes, colors)
+# displaying contours before merge
 showImage(before)
-
-
-image = cv2.imread('images/test_5.png')
-s = getSkeleton(image)
-showImage(s, method="csv")
-
-
 
 
 
 final_strokes = generate_final_strokes(image)
 print(len(final_strokes))
+# displaying contours after merge
+after = draw_strokes(image, final_strokes, colors)
+showImage(after)
+
 
 
 
