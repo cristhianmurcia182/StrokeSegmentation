@@ -76,21 +76,25 @@ class Stroke(object):
         return False
 
     def find_ending_points(self):
-
         d = self.draw_strokes3(self.image, self.points)
         ending_points = []
         for p in self.points:
             neighbourhood = list()
             neighbourhood[:] = d[p[1] - 1: p[1] + 2, p[0] - 1: p[0] + 2]
-
             neighbours = np.argwhere(neighbourhood)
+            print('neighbours', neighbours, 'len neighbours', len(neighbours))
             if len(neighbours) <= 2:
                 ending_points.append(p)
             elif len(neighbours) == 3:
                 if  self.compareN(neighbourhood):
                     ending_points.append(p)
         # returns the two ending points that are more far away
-        #print("ending_points", ending_points)
+        print("points", self.points)
+        print("ending_points", ending_points)
+        # if no ending points were found we have a close stroke (i.e. a perfectly closed circle)
+        if not ending_points:
+            return (self.points[0], self.points[1])
+
         real_ending_points = self.far_away_end_points(ending_points)
         return (real_ending_points[0], real_ending_points[-1])
 
@@ -129,7 +133,7 @@ def scan_8_pixel_neighbourhood(skeleton_image, pixel):
     """
     :param skeleton_image: skeleton image
     :param pixel: a tuple of the type (x, y)
-    :return: a matrix indicating the neighbouring pixels of the input pixel
+    :return: a matrix indicating the indexes of the neighbouring pixels of the input pixel
     """
     if inside_image(pixel, skeleton_image):
         skeleton_image = skeleton_image.copy()
@@ -154,11 +158,10 @@ def find_top_left_most_pixel(skeleton_image, processing_index = 0):
 def inside_image(pixel, image):
     """Checks whether a pixel is inside the image space"""
     h, w = image.shape
-    if (pixel[1] - 1 >= 0) and (pixel[1] + 2 <= h) and (pixel[0] - 1 >= 0) and (pixel[0] + 2 <= w):
+    if (pixel[1] - 1 >= 0) and (pixel[1] + 1 <= h - 1) and (pixel[0] - 1 >= 0) and (pixel[0] + 1 <= w - 1):
         return True
     else:
         return False
-
 
 
 def extend_line(P1, P2 , offset = 100000):
@@ -175,6 +178,7 @@ def extend_line(P1, P2 , offset = 100000):
     new_y2 = y2 + delta_y * offset
 
     return ((new_x1, new_y1), (new_x2, new_y2))
+
 
 def determine_side(P1, P2, P3):
 
@@ -220,6 +224,7 @@ def inner_angle(P1, P2, P3):
 
     return theta_degrees
 
+
 def local_solver(P1, P2, neighbours):
     """
     from a set of neighbouring pixels selects the one with the minimum angular deviation
@@ -255,11 +260,11 @@ def draw_strokes(image, strokes, colors=[(0,255,0)]):
     return blank_image
 
 
-
 def distance(pixel_1, pixel_2):
     delta_x = (pixel_1[0] - pixel_2[0])**2
     delta_y = (pixel_1[1] - pixel_2[1]) ** 2
     return (delta_x + delta_y)**0.5
+
 
 def stroke_distance(stroke_1, stroke_2):
     """Returns the minimum distance between two strokes"""
@@ -278,7 +283,6 @@ def stroke_distance(stroke_1, stroke_2):
                 minimum_distance = p_dist
                 frontier = (p,p2)
     return minimum_distance, frontier
-
 
 
 def generate_strokes_until_ambiguity(skeleton_image, pixel, minimum_length = 10):
@@ -300,24 +304,37 @@ def generate_strokes_until_ambiguity(skeleton_image, pixel, minimum_length = 10)
             if len(neighbours_ap) == 0:
                 #print("hiiii", ambiguity_pixel)
                 ambiguity_solved = True
+
         if len(scan_8_pixel_neighbourhood(skeleton_image, pixel)) == 0 and ambiguity_solved==False:
+            # added
+
+            skeleton_image[pixel[1], pixel[0]] = 0
             pixel = ambiguity_pixel
             all_possibilities.append(stroke_history)
             stroke_history = []
 
+        # comparing with the new pixel
         neighbours = scan_8_pixel_neighbourhood(skeleton_image, pixel)
+
+
+            # added check
+        #if len(neighbours) == 0:
+
+
         if len(neighbours) == 1:
             delta_y, delta_x = delta[tuple(neighbours[0])]
             pixel = (pixel[0] + delta_x, pixel[1] + delta_y)
             stroke_history.append(pixel)
+            print("Stroke History", stroke_history)
             skeleton_image[pixel[1], pixel[0]] = 0
-        elif len(stroke_history) < minimum_length:
+        elif len(stroke_history) < minimum_length and len(neighbours) > 0:
             if len(stroke_history) < 2:
+                print("neighbours XD XD", neighbours)
+                print("neighbours XD", tuple(neighbours[0]))
                 delta_y, delta_x = delta[tuple(neighbours[0])]
-
-
                 pixel = (pixel[0] + delta_x, pixel[1] + delta_y)
                 stroke_history.append(pixel)
+                print("Stroke History", stroke_history)
                 skeleton_image[pixel[1], pixel[0]] = 0
             else:
                 P1 = stroke_history[-2]
@@ -325,27 +342,46 @@ def generate_strokes_until_ambiguity(skeleton_image, pixel, minimum_length = 10)
 
                 pixel = local_solver(P1, P2, tuple(neighbours))
                 stroke_history.append(pixel)
+                print("Stroke History", stroke_history)
                 skeleton_image[pixel[1], pixel[0]] = 0
         else:
             #it is large enough so it can be compared later, hence we add it
 
             all_possibilities.append(stroke_history)
+            print("all_possibilities", stroke_history)
             stroke_history = []
             # we must go back to the original ambiguity
             if ambiguity_pixel:
                 pixel = ambiguity_pixel
             else:
-
                 ambiguity_pixel = pixel
-
                 ambiguity_solved = False
                 #print("ambiguity pixel", ambiguity_pixel, ambiguity_solved)
+
     if len(stroke_history)>=12:
         all_possibilities.append(stroke_history)
 
-    all_strokes = [Stroke(points, former_skeleton) for points in all_possibilities]
+    all_strokes = [Stroke(points, former_skeleton) for points in all_possibilities if len(points) > 4]
 
     return all_strokes, former_skeleton
+
+
+# def generate_strokes2(skeleton_image):
+#     all_strokes = []
+#     while True:
+#         pixel = find_top_left_most_pixel(skeleton_image, processing_index=0)
+#         if  pixel == None:
+#             break
+#         try:
+#             strokes, former_skeleton = generate_strokes_until_ambiguity(skeleton_image, pixel, minimum_length=10)
+#             # if len(strokes) == 0:
+#             #     break
+#
+#             for s in strokes:
+#                 all_strokes.append(s)
+#         except:
+#             continue
+#     return  all_strokes, former_skeleton
 
 
 def generate_strokes2(skeleton_image):
@@ -354,15 +390,14 @@ def generate_strokes2(skeleton_image):
         pixel = find_top_left_most_pixel(skeleton_image, processing_index=0)
         if  pixel == None:
             break
-        try:
-            strokes, former_skeleton = generate_strokes_until_ambiguity(skeleton_image, pixel, minimum_length=10)
-            # if len(strokes) == 0:
-            #     break
 
-            for s in strokes:
-                all_strokes.append(s)
-        except:
-            continue
+        strokes, former_skeleton = generate_strokes_until_ambiguity(skeleton_image, pixel, minimum_length=10)
+        # if len(strokes) == 0:
+        #     break
+
+        for s in strokes:
+            all_strokes.append(s)
+
     return  all_strokes, former_skeleton
 
 
@@ -388,7 +423,6 @@ def best_stroke(former_stroke, possible_strokes ):
         diff = (pc_fs - pc)**2
         if diff < minimum_difference:
             minimum_difference = diff
-
             best_stroke = ps
     return best_stroke, index
 
@@ -399,6 +433,7 @@ def fill_stroke_gap(frontier):
     new_points_y = list(range(p1[1], p2[1] + 1, 1))
     new_points = list(zip(new_points_x, new_points_y))
     return new_points
+
 
 def alternative_single_merge(former_stroke, possible_strokes, image):
     """merges the former stroke with the best stroke within the possibilities"""
@@ -423,22 +458,17 @@ def alternative_single_merge(former_stroke, possible_strokes, image):
     else:
         return former_stroke,strokes_to_be_erased
 
+
 def multiple_merge(all_strokes, image):
-
-
 
     former_stroke = all_strokes[0]
     to_compare = all_strokes[1:]
-
     while True:
         former_stroke, strokes_to_be_erased = alternative_single_merge(former_stroke, to_compare, image)
-
         to_compare = [tc for tc in to_compare if tc.index not in strokes_to_be_erased]
         if len(strokes_to_be_erased) == 0:
             break
     return former_stroke, to_compare
-
-
 
 
 def generate_final_strokes(image):
@@ -458,17 +488,43 @@ def generate_final_strokes(image):
 
 
 
-image = cv2.imread('test_1.png')
-showImage(image)
 
+image = cv2.imread('images/test_5.png')
+skeleton_image = getSkeleton(image)
+showImage(skeleton_image, method="csv")
+all_strokes, _ = generate_strokes2(skeleton_image)
+print(len(all_strokes))
+before = draw_strokes(image, all_strokes, colors)
+showImage(before)
+
+
+image = cv2.imread('images/test_5.png')
 s = getSkeleton(image)
-showImage(s)
+showImage(s, method="csv")
+
+
+
 
 
 final_strokes = generate_final_strokes(image)
 print(len(final_strokes))
 
-before = draw_strokes(image, final_strokes, colors)
+
+
+all_strokes, _ = generate_strokes2(s)
+before = draw_strokes(image, all_strokes, colors)
 
 showImage(before)
 
+
+
+
+
+image = cv2.imread('images/test_5.png')
+skeleton_image = getSkeleton(image)
+showImage(s, method="csv")
+all_strokes, _ = generate_strokes2(skeleton_image)
+
+pixel = find_top_left_most_pixel(skeleton_image, processing_index=0)
+len(scan_8_pixel_neighbourhood(skeleton_image, pixel))
+neighbours = scan_8_pixel_neighbourhood(skeleton_image, pixel)
