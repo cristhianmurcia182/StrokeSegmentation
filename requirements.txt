@@ -5,7 +5,7 @@ decorator==4.3.2
 kiwisolver==1.0.1
 matplotlib==3.0.2
 networkx==2.2
-numpy==1.16.1
+numpy==1.22.0
 opencv-contrib-python==4.0.0.21
 Pillow==5.4.1
 pyparsing==2.3.1
